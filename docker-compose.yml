@@ -1,0 +1,13 @@
+name: gbstopmotion
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-gbstopmotion}-frontend:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-gbstopmotion}-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-21830}:80"
+    environment:
+      - TZ=Asia/Shanghai
