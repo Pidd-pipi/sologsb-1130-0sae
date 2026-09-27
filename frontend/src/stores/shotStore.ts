@@ -92,9 +92,12 @@ export const useShotStore = defineStore('shot', {
       await api.updateShot(id, { status });
       this.shots = this.shots.map((s) => (s.id === id ? { ...s, status, updatedAt: Date.now() } : s));
     },
-    async syncProgress(id: number, percent: number) {
-      await api.syncShotProgress(id, percent);
-      this.shots = this.shots.map((s) => (s.id === id ? { ...s, progressPercent: percent } : s));
+    /** 回写实拍进度快照，并按实拍记录推导的状态同步镜头状态 */
+    async syncProgress(id: number, percent: number, status?: Shot['status']) {
+      await api.syncShotProgress(id, percent, status);
+      this.shots = this.shots.map((s) =>
+        s.id === id ? { ...s, progressPercent: percent, ...(status ? { status } : {}), updatedAt: Date.now() } : s,
+      );
     },
     async remove(id: number) {
       await api.deleteShot(id);

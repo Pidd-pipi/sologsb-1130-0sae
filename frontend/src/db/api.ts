@@ -129,7 +129,7 @@ export async function deleteTake(id: number): Promise<void> {
   await db.takes.delete(id);
 }
 
-/** 按实拍张数回写镜头进度（Shot 表保存完成百分比快照，便于总览页快速读取） */
-export async function syncShotProgress(shotId: number, percent: number): Promise<void> {
-  await db.shots.update(shotId, toPlain({ progressPercent: percent, updatedAt: Date.now() }));
+/** 按实拍张数回写镜头进度与状态（Shot 表保存快照，便于总览页快速读取） */
+export async function syncShotProgress(shotId: number, percent: number, status?: Shot['status']): Promise<void> {
+  await db.shots.update(shotId, toPlain({ progressPercent: percent, ...(status ? { status } : {}), updatedAt: Date.now() }));
 }

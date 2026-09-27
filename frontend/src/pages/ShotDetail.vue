@@ -148,7 +148,9 @@ async function submitTake() {
   }
   await registerTake(shot.value, takeForm.value.date, taken, wasted);
   await loadTakes();
-  flash(`已登记 ${taken} 张实拍，进度已回写`);
+  const s = summary.value;
+  const overText = s && s.over > 0 ? `，超出计划 ${s.over} 张` : '';
+  flash(`已登记 ${taken} 张实拍，进度回写为 ${s?.percent ?? 0}%（${shot.value.status}）${overText}`);
 }
 
 async function addProp() {

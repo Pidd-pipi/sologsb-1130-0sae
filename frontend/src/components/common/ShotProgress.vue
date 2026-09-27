@@ -36,6 +36,9 @@ const remainingValue = computed(() =>
   typeof props.remaining === 'number' ? props.remaining : Math.max(0, props.planned - props.taken),
 );
 
+/** 累计已拍超出计划的张数：保留实拍数，同时提示超出多少 */
+const overValue = computed(() => Math.max(0, props.taken - props.planned));
+
 const barColor = computed(() => {
   const p = percentValue.value;
   if (p >= 100) return '#3aa675';
@@ -60,6 +63,7 @@ const barColor = computed(() => {
       <span>已拍 {{ taken }} 张</span>
       <span v-if="wasted">废帧 {{ wasted }} 张</span>
       <span>剩余 {{ remainingValue }} 张</span>
+      <span v-if="overValue" class="over" data-testid="progress-over">超出计划 {{ overValue }} 张</span>
     </div>
   </div>
 </template>
@@ -106,6 +110,10 @@ const barColor = computed(() => {
   gap: 14px;
   font-size: 12px;
   color: #5a6472;
+}
+.over {
+  color: #c47f17;
+  font-weight: 600;
 }
 .compact .stats {
   gap: 10px;

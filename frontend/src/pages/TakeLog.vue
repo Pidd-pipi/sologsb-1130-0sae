@@ -56,14 +56,17 @@ async function submit() {
   }
   await registerTake(shot, form.value.date, taken, wasted);
   await loadTakes();
-  flash(`${shot.code} 已登记 ${taken} 张，完成度回写为 ${selectedSummary.value?.percent ?? 0}%`);
+  const s = selectedSummary.value;
+  const overText = s && s.over > 0 ? `，已超出计划 ${s.over} 张` : '';
+  flash(`${shot.code} 已登记 ${taken} 张，完成度回写为 ${s?.percent ?? 0}%${overText}`);
 }
 
 async function removeRow(row: TakeLog) {
   if (typeof row.id !== 'number') return;
   await removeTake(row.id);
   await loadTakes();
-  flash('已删除该条实拍记录');
+  const s = summaries.value.find((x) => x.shotId === row.shotId);
+  flash(s ? `已删除该条实拍记录，${s.code} 完成度重算为 ${s.percent}%` : '已删除该条实拍记录');
 }
 </script>
 
@@ -110,6 +113,7 @@ async function removeRow(row: TakeLog) {
             <button type="button" class="btn primary" data-testid="take-log-submit" @click="submit">登记实拍</button>
             <span class="muted" v-if="selectedSummary">
               计划 {{ selectedSummary.planned }} 张 · 已拍 {{ selectedSummary.taken }} 张 · 剩余 {{ selectedSummary.remaining }} 张
+              <template v-if="selectedSummary.over > 0"> · 超出 {{ selectedSummary.over }} 张</template>
             </span>
           </div>
         </div>
