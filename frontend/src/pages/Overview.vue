@@ -21,13 +21,14 @@ const router = useRouter();
 const shotStore = useShotStore();
 const frameStore = useFrameStore();
 const { shots } = storeToRefs(shotStore);
-const { summaries, overall, loadTakes, loading } = useProgress();
+const { summaries, overall, loadTakes, reconcileShots, loading } = useProgress();
 
 const allFrames = ref<FrameEntry[]>([]);
 
 onMounted(async () => {
   await shotStore.load();
   await loadTakes();
+  await reconcileShots();
   allFrames.value = await listAllFrames();
 });
 
@@ -92,7 +93,10 @@ function goDetail(id: number | undefined) {
       <div class="stat">
         <span class="label">待拍张数</span>
         <span class="value">{{ waitingFrames }}</span>
-        <span class="hint">整体完成 {{ overall.percent }}%</span>
+        <span class="hint" v-if="overall.overage > 0">
+          整体完成 {{ overall.percent }}% · <strong class="overage" data-testid="overall-overage">超出 {{ overall.overage }} 张</strong>
+        </span>
+        <span class="hint" v-else>整体完成 {{ overall.percent }}%</span>
       </div>
     </div>
 
@@ -141,6 +145,7 @@ function goDetail(id: number | undefined) {
                 :taken="row.summary?.taken ?? 0"
                 :wasted="row.summary?.wasted ?? 0"
                 :remaining="row.summary?.remaining ?? 0"
+                :overage="row.summary?.overage ?? 0"
                 :percent="row.summary?.percent ?? 0"
               />
             </td>
@@ -230,6 +235,10 @@ h1 {
 .muted {
   color: #8a94a6;
   font-size: 12px;
+}
+.overage {
+  color: #c45656;
+  font-weight: 600;
 }
 .table {
   width: 100%;

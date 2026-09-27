@@ -31,7 +31,7 @@ const frameStore = useFrameStore();
 const { frames, selectedFrameNo } = storeToRefs(frameStore);
 
 const { insertAfter, removeAt, move, patch, select, syncShotRange } = useFrameSequence();
-const { registerTake, summaries, loadTakes, computeProgress } = useProgress();
+const { registerTake, summaries, loadTakes, resyncShot, reconcileShots, computeProgress } = useProgress();
 
 const props = ref<PropState[]>([]);
 const takeForm = ref({ date: today(), takenFrames: 8, wastedFrames: 0 });
@@ -61,6 +61,7 @@ async function bootstrap(id: number) {
   notFound.value = false;
   await frameStore.loadForShot(id);
   await loadTakes();
+  await reconcileShots();
   props.value = await api.listProps(id);
   if (typeof row.id === 'number') shotStore.currentId = row.id;
   const first = frames.value[0];
@@ -99,14 +100,16 @@ async function changeStatus(status: ShotStatus) {
 async function changeDuration(value: number) {
   if (!shot.value) return;
   await shotStore.update(shotId.value, { durationSec: value });
-  flash('已按新时长重排帧区间');
+  await resyncShot(shotId.value);
+  flash('已按新时长重排帧区间，并按实拍记录重算状态与完成度');
 }
 
 async function changeFps(value: number) {
   if (!shot.value) return;
   await shotStore.update(shotId.value, { fps: value });
   await syncShotRange();
-  flash('已按新帧率重排帧区间');
+  await resyncShot(shotId.value);
+  flash('已按新帧率重排帧区间，并按实拍记录重算状态与完成度');
 }
 
 async function addFrameWithExposure() {
@@ -148,7 +151,12 @@ async function submitTake() {
   }
   await registerTake(shot.value, takeForm.value.date, taken, wasted);
   await loadTakes();
-  flash(`已登记 ${taken} 张实拍，进度已回写`);
+  const s = summaries.value.find((x) => x.shotId === shotId.value);
+  if (s && s.overage > 0) {
+    flash(`已登记 ${taken} 张实拍，累计超出计划 ${s.overage} 张，仍保留实拍数 ${s.taken} 张`);
+  } else {
+    flash(`已登记 ${taken} 张实拍，进度已回写，状态为「${s?.status ?? '拍摄中'}」`);
+  }
 }
 
 async function addProp() {
@@ -192,7 +200,7 @@ const consumed = computed(() => {
   const s = takeRows.value;
   if (s) return computeProgress(s.planned, s.taken, s.wasted);
   const plan = planned.value;
-  return { planned: plan, taken: 0, wasted: 0, remaining: plan, percent: 0 };
+  return { planned: plan, taken: 0, wasted: 0, remaining: plan, overage: 0, percent: 0, status: '未开机' as const };
 });
 
 function speedOf(frame: FrameEntry) {
@@ -275,6 +283,7 @@ function speedOf(frame: FrameEntry) {
             :taken="consumed.taken"
             :wasted="consumed.wasted"
             :remaining="consumed.remaining"
+            :overage="consumed.overage"
             :percent="consumed.percent"
           />
         </div>
@@ -362,7 +371,10 @@ function speedOf(frame: FrameEntry) {
         <div class="panel">
           <div class="panel-head">
             <h2>登记实拍</h2>
-            <span class="muted">剩余 {{ consumed.remaining }} 张</span>
+            <span class="muted" v-if="consumed.overage > 0">
+              <strong class="overage">已超出 {{ consumed.overage }} 张</strong>
+            </span>
+            <span class="muted" v-else>剩余 {{ consumed.remaining }} 张</span>
           </div>
           <div class="take-form">
             <label class="field"><span>拍摄日期</span><input v-model="takeForm.date" type="date" data-testid="take-date" /></label>
@@ -543,6 +555,10 @@ h1 .mono {
 .muted {
   color: #8a94a6;
   font-size: 12px;
+}
+.overage {
+  color: #c45656;
+  font-weight: 600;
 }
 .prop-lookup {
   margin-top: 10px;

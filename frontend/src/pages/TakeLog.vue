@@ -15,7 +15,7 @@ import type { TakeLog } from '../types/take';
 
 const shotStore = useShotStore();
 const { shots } = storeToRefs(shotStore);
-const { takes, summaries, overall, wasteBuckets, loadTakes, registerTake, removeTake, loading } = useProgress();
+const { takes, summaries, overall, wasteBuckets, loadTakes, registerTake, removeTake, reconcileShots, loading } = useProgress();
 
 const selectedShotId = ref<number | null>(null);
 const form = ref({ date: today(), takenFrames: 8, wastedFrames: 0 });
@@ -27,6 +27,7 @@ const selectedSummary = computed(() => summaries.value.find((s) => s.shotId === 
 onMounted(async () => {
   if (!shotStore.ready) await shotStore.load();
   await loadTakes();
+  await reconcileShots();
   const first = shots.value[0];
   if (first && typeof first.id === 'number') selectedShotId.value = first.id;
 });
@@ -56,14 +57,21 @@ async function submit() {
   }
   await registerTake(shot, form.value.date, taken, wasted);
   await loadTakes();
-  flash(`${shot.code} 已登记 ${taken} 张，完成度回写为 ${selectedSummary.value?.percent ?? 0}%`);
+  const summary = summaries.value.find((s) => s.shotId === shot.id);
+  const over = summary?.overage ?? 0;
+  flash(
+    over > 0
+      ? `${shot.code} 已登记 ${taken} 张，累计超出计划 ${over} 张，仍保留实拍数 ${summary?.taken ?? taken} 张`
+      : `${shot.code} 已登记 ${taken} 张，完成度回写为 ${summary?.percent ?? 0}%`,
+  );
 }
 
 async function removeRow(row: TakeLog) {
   if (typeof row.id !== 'number') return;
   await removeTake(row.id);
   await loadTakes();
-  flash('已删除该条实拍记录');
+  const summary = summaries.value.find((s) => s.shotId === row.shotId);
+  flash(`已删除该条实拍记录，${row.shotCode} 完成度重算为 ${summary?.percent ?? 0}%，状态为「${summary?.status ?? '未开机'}」`);
 }
 </script>
 
@@ -78,6 +86,7 @@ async function removeRow(row: TakeLog) {
         <span>全片完成度</span>
         <strong>{{ overall.percent }}%</strong>
         <span>待拍 {{ overall.remaining }} 张</span>
+        <span v-if="overall.overage > 0" class="overage" data-testid="overall-overage">超出 {{ overall.overage }} 张</span>
       </div>
     </header>
 
@@ -110,6 +119,7 @@ async function removeRow(row: TakeLog) {
             <button type="button" class="btn primary" data-testid="take-log-submit" @click="submit">登记实拍</button>
             <span class="muted" v-if="selectedSummary">
               计划 {{ selectedSummary.planned }} 张 · 已拍 {{ selectedSummary.taken }} 张 · 剩余 {{ selectedSummary.remaining }} 张
+              <template v-if="selectedSummary.overage > 0"> · <strong class="overage">超出 {{ selectedSummary.overage }} 张</strong></template>
             </span>
           </div>
         </div>
@@ -124,6 +134,7 @@ async function removeRow(row: TakeLog) {
             :taken="selectedSummary.taken"
             :wasted="selectedSummary.wasted"
             :remaining="selectedSummary.remaining"
+            :overage="selectedSummary.overage"
             :percent="selectedSummary.percent"
           />
           <p v-else class="muted">请选择镜头。</p>
@@ -197,6 +208,10 @@ h1 {
 .stat-inline strong {
   font-size: 20px;
   color: #2f6fed;
+}
+.overage {
+  color: #c45656;
+  font-weight: 600;
 }
 .two-panel {
   display: grid;

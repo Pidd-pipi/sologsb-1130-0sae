@@ -1,6 +1,6 @@
 /** 数据访问层：所有读写都在这里收口，写入前统一脱代理 */
 import { db, toPlain } from './index';
-import type { Shot } from '../types/shot';
+import type { Shot, ShotStatus } from '../types/shot';
 import type { FrameEntry } from '../types/frame';
 import type { PropState } from '../types/prop';
 import type { TakeLog } from '../types/take';
@@ -129,7 +129,9 @@ export async function deleteTake(id: number): Promise<void> {
   await db.takes.delete(id);
 }
 
-/** 按实拍张数回写镜头进度（Shot 表保存完成百分比快照，便于总览页快速读取） */
-export async function syncShotProgress(shotId: number, percent: number): Promise<void> {
-  await db.shots.update(shotId, toPlain({ progressPercent: percent, updatedAt: Date.now() }));
+/** 按实拍张数回写镜头进度（Shot 表保存完成百分比与状态快照，便于总览页快速读取） */
+export async function syncShotProgress(shotId: number, percent: number, status?: ShotStatus): Promise<void> {
+  const patch: Partial<Shot> = { progressPercent: percent };
+  if (status) patch.status = status;
+  await db.shots.update(shotId, toPlain({ ...patch, updatedAt: Date.now() }));
 }

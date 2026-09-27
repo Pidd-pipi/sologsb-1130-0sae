@@ -6,6 +6,7 @@ import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useFrameStore } from '../stores/frameStore';
 import { useShotStore } from '../stores/shotStore';
+import { recalcShotProgress } from './useProgress';
 import { durationToFrames, framesToDuration } from '../utils/frameMath';
 import type { FrameEntry } from '../types/frame';
 
@@ -56,6 +57,8 @@ export function useFrameSequence() {
       startFrame: current.startFrame,
       endFrame: current.startFrame + count - 1,
     });
+    // 计划张数随帧条目数变化，实拍记录派生的完成度与状态需重新对齐
+    await recalcShotProgress(shotId.value);
   }
 
   /** 条带上的单帧曝光/位移改动 */

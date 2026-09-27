@@ -13,6 +13,8 @@ interface Props {
   wasted?: number;
   remaining?: number;
   percent?: number;
+  /** 累计已拍超过计划的张数，大于 0 时展示超拍提示 */
+  overage?: number;
   compact?: boolean;
   status?: string;
 }
@@ -22,6 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
   wasted: 0,
   remaining: undefined,
   percent: undefined,
+  overage: 0,
   compact: false,
   status: '',
 });
@@ -60,6 +63,7 @@ const barColor = computed(() => {
       <span>已拍 {{ taken }} 张</span>
       <span v-if="wasted">废帧 {{ wasted }} 张</span>
       <span>剩余 {{ remainingValue }} 张</span>
+      <span v-if="overage > 0" class="overage" data-testid="shot-overage">已超出 {{ overage }} 张</span>
     </div>
   </div>
 </template>
@@ -109,5 +113,9 @@ const barColor = computed(() => {
 }
 .compact .stats {
   gap: 10px;
+}
+.overage {
+  color: #c45656;
+  font-weight: 600;
 }
 </style>
